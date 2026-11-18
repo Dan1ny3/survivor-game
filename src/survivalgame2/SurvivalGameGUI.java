@@ -2,225 +2,213 @@ package survivalgame2;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.util.Random;
 
-// Clasa principală pentru jocul grafic
-public class SurvivalGameGUI extends JPanel implements KeyListener {
-    private final int tileSize = 50; // Dimensiunea fiecărei celule din hartă
-    private final int gridSize = 10; // Dimensiunea hărții (10x10)
-    private final char[][] map = new char[gridSize][gridSize];
+/**
+ * Survivor Game - a small tile-based survival game built with Java Swing.
+ *
+ * Goal: collect all the cereals on the map without running out of health.
+ * Enemies are on the map too: stepping on one costs health.
+ *
+ * Controls: W/A/S/D or arrow keys to move, R to restart.
+ */
+public class SurvivalGameGUI extends JPanel {
 
-    private int playerX = gridSize / 2; // Poziția inițială a jucătorului
-    private int playerY = gridSize / 2;
+    // ----- Game settings -----
+    private static final int TILE_SIZE = 50;
+    private static final int GRID_SIZE = 10;
+    private static final int STATUS_BAR_HEIGHT = 50;
+    private static final int MAX_HEALTH = 100;
+    private static final int NUM_ENEMIES = 12;
+    private static final int NUM_CEREALS = 5;
+    private static final int CEREAL_HEALTH_BOOST = 10;
+    private static final int ENEMY_MIN_DAMAGE = 5;
+    private static final int ENEMY_MAX_DAMAGE = 14;
 
-    private final Image playerImage;
-    private final Image enemyImage;
-    private final Image grassImage;
-    private Image cerealeImage;
+    // ----- What can be on a tile -----
+    private enum Tile { EMPTY, ENEMY, CEREAL }
 
+    private enum GameState { PLAYING, WON, LOST }
 
-    private boolean running = true;
-    private int playerHealth = 100;
+    private final Tile[][] map = new Tile[GRID_SIZE][GRID_SIZE];
+    private final Random random = new Random();
 
-    private void increaseHealth(int healthBoost) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
+    private final Image playerImage = loadImage("player.jpg");
+    private final Image enemyImage = loadImage("enemy.jpg");
+    private final Image grassImage = loadImage("grass.jpg");
+    private final Image cerealImage = loadImage("cereale.jpg");
 
-    private void decreaseHealth(int damage) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-abstract class MapObject {
-    protected String name;
-
-    public MapObject(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    // Metodă abstractă pentru interacțiunea cu playerul
-    public abstract void interact(SurvivalGameGUI game);
-}
-
-class Cereal extends MapObject {
-    private final int healthBoost;
-
-    public Cereal(int healthBoost) {
-        super("Cereal");
-        this.healthBoost = healthBoost;
-    }
-
-    @Override
-    public void interact(SurvivalGameGUI game) {
-        JOptionPane.showMessageDialog(game, "Ai găsit cereale! +" + healthBoost + " Sănătate!");
-        game.increaseHealth(healthBoost);
-    }
-}
-
-class Enemy extends MapObject {
-    public Enemy() {
-        super("Enemy");
-    }
-
-    @Override
-    public void interact(SurvivalGameGUI game) {
-        JOptionPane.showMessageDialog(game, "Ai întâlnit un inamic!");
-        Random random = new Random();
-        int damage = random.nextInt(10) + 5; // Pierzi sănătate între 5 și 15
-        game.decreaseHealth(damage);
-    }
-}
+    private int playerRow;
+    private int playerCol;
+    private int playerHealth;
+    private int cerealsLeft;
+    private GameState state;
+    private String message;
 
     public SurvivalGameGUI() {
-        
-        
-        // Încarcă imaginile
-        playerImage = new ImageIcon("player.jpg").getImage();
-        enemyImage = new ImageIcon("enemy.jpg").getImage();
-        grassImage = new ImageIcon("grass.jpg").getImage();
-        cerealeImage = new ImageIcon("cereale.jpg").getImage();
-        
-        // Inițializează harta
-        initializeMap();
-
-        // Setează dimensiunea ferestrei și ascultătorul de taste
-        setPreferredSize(new Dimension(gridSize * tileSize, gridSize * tileSize));
-        addKeyListener(this);
+        setPreferredSize(new Dimension(GRID_SIZE * TILE_SIZE,
+                GRID_SIZE * TILE_SIZE + STATUS_BAR_HEIGHT));
         setFocusable(true);
+        addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                handleKey(e.getKeyCode());
+            }
+        });
+        startNewGame();
     }
 
-    private void initializeMap() {
-    for (int i = 0; i < gridSize; i++) {
-        for (int j = 0; j < gridSize; j++) {
-            map[i][j] = '0'; // Loc liber
-        }
-    }
-    map[playerX][playerY] = 'P'; // Poziționează jucătorul inițial
+    // ----- Setup -----
 
-    // Generează inamici pe hartă
-    Random random = new Random();
-    int numEnemies = 12; // Număr de inamici
-    for (int i = 0; i < numEnemies; i++) {
-        int enemyX, enemyY;
-        do {
-            enemyX = random.nextInt(gridSize);
-            enemyY = random.nextInt(gridSize);
-        } while (map[enemyX][enemyY] != '0'); // Evită suprapunerea
-        map[enemyX][enemyY] = 'E'; // Plasează un inamic
-    }
-
-    // Generează pizza pe hartă
-    int numCereale = 5; // Număr de cereale
-    for (int i = 0; i < numCereale; i++) {
-        int cerealeX, cerealeY;
-        do {
-            cerealeX = random.nextInt(gridSize);
-            cerealeY = random.nextInt(gridSize);
-        } while (map[cerealeX][cerealeY] != '0'); // Evită suprapunerea
-        map[cerealeX][cerealeY] = 'Z'; // Plasează cerealele
-    }
-}
-
-
-
-    @Override
-protected void paintComponent(Graphics g) {
-    super.paintComponent(g);
-
-    // Desenează harta
-    for (int i = 0; i < gridSize; i++) {
-        for (int j = 0; j < gridSize; j++) {
-            g.drawImage(grassImage, j * tileSize, i * tileSize, tileSize, tileSize, null); // Fundal
-            if (map[i][j] == 'P') {
-                g.drawImage(playerImage, j * tileSize, i * tileSize, tileSize, tileSize, null); // Player
-            } else if (map[i][j] == 'E') {
-                g.drawImage(enemyImage, j * tileSize, i * tileSize, tileSize, tileSize, null); // Inamic
-            } else if (map[i][j] == 'Z') {
-                g.drawImage(cerealeImage, j * tileSize, i * tileSize, tileSize, tileSize, null); // Pizza
+    private void startNewGame() {
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                map[row][col] = Tile.EMPTY;
             }
         }
-    }
 
-    // Desenează statistici
-    g.setColor(Color.WHITE);
-    g.fillRect(0, gridSize * tileSize, gridSize * tileSize, 50);
-    g.setColor(Color.BLACK);
-    g.drawString("Sănătate: " + playerHealth, 10, gridSize * tileSize + 25);
-}
+        playerRow = GRID_SIZE / 2;
+        playerCol = GRID_SIZE / 2;
+        playerHealth = MAX_HEALTH;
+        cerealsLeft = NUM_CEREALS;
+        state = GameState.PLAYING;
+        message = "Collect all cereals and avoid enemies!";
 
-
-
-    public void movePlayer(int dx, int dy) {
-    if (!running) return;
-
-    int newX = playerX + dx;
-    int newY = playerY + dy;
-
-    // Verifică limitele hărții
-    if (newX >= 0 && newX < gridSize && newY >= 0 && newY < gridSize) {
-        char target = map[newX][newY];
-
-        if (target == 'E') {
-            // Luptă cu inamicul
-            JOptionPane.showMessageDialog(this, "Ai întâlnit un inamic!");
-            Random random = new Random();
-            playerHealth -= random.nextInt(10) + 5; // Pierzi sănătate
-            if (playerHealth <= 0) {
-                running = false;
-                JOptionPane.showMessageDialog(this, "Ai murit! Jocul s-a terminat.");
-                return;
-            }
-
-            // Elimină inamicul
-            map[newX][newY] = '0';
-            } else if (target == 'Z') {
-            // Colectează cerealele
-            JOptionPane.showMessageDialog(this, "Ai găsit o pizza! +10 Sănătate!");
-            playerHealth = Math.min(playerHealth + 10, 100); // Crește sănătatea, maxim 100
-            map[newX][newY] = '0';
-        }
-
-        // Mută jucătorul
-        map[playerX][playerY] = '0'; // Șterge poziția anterioară
-        playerX = newX;
-        playerY = newY;
-        map[playerX][playerY] = 'P'; // Actualizează poziția jucătorului
+        placeRandomly(Tile.ENEMY, NUM_ENEMIES);
+        placeRandomly(Tile.CEREAL, NUM_CEREALS);
         repaint();
     }
-}
 
-
-    @Override
-    public void keyPressed(KeyEvent e) {
-        switch (e.getKeyCode()) {
-            case KeyEvent.VK_W -> movePlayer(-1, 0); // Sus
-            case KeyEvent.VK_A -> movePlayer(0, -1); // Stânga
-            case KeyEvent.VK_S -> movePlayer(1, 0);  // Jos
-            case KeyEvent.VK_D -> movePlayer(0, 1);  // Dreapta
+    /** Places 'count' tiles of the given type on random free cells (never on the player). */
+    private void placeRandomly(Tile type, int count) {
+        for (int i = 0; i < count; i++) {
+            int row;
+            int col;
+            do {
+                row = random.nextInt(GRID_SIZE);
+                col = random.nextInt(GRID_SIZE);
+            } while (map[row][col] != Tile.EMPTY || (row == playerRow && col == playerCol));
+            map[row][col] = type;
         }
     }
 
-    @Override
-    public void keyReleased(KeyEvent e) {
+    // ----- Game logic -----
+
+    private void handleKey(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.VK_W, KeyEvent.VK_UP -> movePlayer(-1, 0);
+            case KeyEvent.VK_S, KeyEvent.VK_DOWN -> movePlayer(1, 0);
+            case KeyEvent.VK_A, KeyEvent.VK_LEFT -> movePlayer(0, -1);
+            case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> movePlayer(0, 1);
+            case KeyEvent.VK_R -> startNewGame();
+            default -> { }
+        }
     }
 
-    @Override
-    public void keyTyped(KeyEvent e) {
+    private void movePlayer(int dRow, int dCol) {
+        if (state != GameState.PLAYING) {
+            return;
+        }
+
+        int newRow = playerRow + dRow;
+        int newCol = playerCol + dCol;
+        boolean insideMap = newRow >= 0 && newRow < GRID_SIZE && newCol >= 0 && newCol < GRID_SIZE;
+        if (!insideMap) {
+            return;
+        }
+
+        playerRow = newRow;
+        playerCol = newCol;
+        interactWith(map[newRow][newCol]);
+        map[newRow][newCol] = Tile.EMPTY; // enemies and cereals disappear once used
+        repaint();
     }
+
+    private void interactWith(Tile tile) {
+        switch (tile) {
+            case ENEMY -> {
+                int damage = ENEMY_MIN_DAMAGE + random.nextInt(ENEMY_MAX_DAMAGE - ENEMY_MIN_DAMAGE + 1);
+                playerHealth -= damage;
+                message = "An enemy hit you! -" + damage + " health";
+                if (playerHealth <= 0) {
+                    playerHealth = 0;
+                    state = GameState.LOST;
+                    message = "You died! Press R to restart.";
+                }
+            }
+            case CEREAL -> {
+                playerHealth = Math.min(playerHealth + CEREAL_HEALTH_BOOST, MAX_HEALTH);
+                cerealsLeft--;
+                message = "You found cereal! +" + CEREAL_HEALTH_BOOST + " health";
+                if (cerealsLeft == 0) {
+                    state = GameState.WON;
+                    message = "You collected everything - you win! Press R to play again.";
+                }
+            }
+            case EMPTY -> { }
+        }
+    }
+
+    // ----- Rendering -----
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                int x = col * TILE_SIZE;
+                int y = row * TILE_SIZE;
+                drawTile(g, grassImage, new Color(80, 160, 80), x, y);
+                switch (map[row][col]) {
+                    case ENEMY -> drawTile(g, enemyImage, Color.RED, x, y);
+                    case CEREAL -> drawTile(g, cerealImage, Color.ORANGE, x, y);
+                    case EMPTY -> { }
+                }
+            }
+        }
+        drawTile(g, playerImage, Color.BLUE, playerCol * TILE_SIZE, playerRow * TILE_SIZE);
+
+        drawStatusBar(g);
+    }
+
+    private void drawTile(Graphics g, Image image, Color fallback, int x, int y) {
+        if (image != null) {
+            g.drawImage(image, x, y, TILE_SIZE, TILE_SIZE, null);
+        } else {
+            g.setColor(fallback); // used if an image file is missing
+            g.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        }
+    }
+
+    private void drawStatusBar(Graphics g) {
+        int barTop = GRID_SIZE * TILE_SIZE;
+        g.setColor(Color.WHITE);
+        g.fillRect(0, barTop, GRID_SIZE * TILE_SIZE, STATUS_BAR_HEIGHT);
+        g.setColor(Color.BLACK);
+        g.drawString("Health: " + playerHealth + "   Cereals left: " + cerealsLeft, 10, barTop + 20);
+        g.drawString(message, 10, barTop + 40);
+    }
+
+    /** Loads an image that sits next to this class (same package). Returns null if not found. */
+    private static Image loadImage(String fileName) {
+        java.net.URL url = SurvivalGameGUI.class.getResource(fileName);
+        return url == null ? null : new ImageIcon(url).getImage();
+    }
+
+    // ----- Entry point -----
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("Survival Game");
-        SurvivalGameGUI gamePanel = new SurvivalGameGUI();
-
-        frame.add(gamePanel);
-        frame.pack();
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Survivor Game");
+            frame.add(new SurvivalGameGUI());
+            frame.pack();
+            frame.setResizable(false);
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        });
     }
 }
