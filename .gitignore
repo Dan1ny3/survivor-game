@@ -1,0 +1,16 @@
+# Compiled output
+build/
+dist/
+out/
+*.class
+*.jar
+
+# IDE files
+nbproject/private/
+.idea/
+*.iml
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
