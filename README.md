@@ -3,6 +3,8 @@
 A small tile-based survival game written in **Java (Swing)**.
 Move around a 10x10 map, collect all the cereals and avoid the enemies.
 
+<img width="248" height="290" alt="survivorgame" src="https://github.com/user-attachments/assets/7be63753-a650-4a6a-8d8f-f7555fa6b8a5" />
+
 ## Gameplay
 
 - Move with **W / A / S / D** or the **arrow keys**
